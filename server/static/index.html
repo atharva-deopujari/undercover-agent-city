@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Undercover City — Spectator</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Plain JS data files (load before JSX) -->
+<script src="/static/city-data.js"></script>
+<script src="/static/episode.js"></script>
+
+<!-- JSX components -->
+<script type="text/babel" src="/static/tweaks-panel.jsx"></script>
+<script type="text/babel" src="/static/city-grid.jsx"></script>
+<script type="text/babel" src="/static/panels.jsx"></script>
+<script type="text/babel" src="/static/app.jsx"></script>
+</body>
+</html>
