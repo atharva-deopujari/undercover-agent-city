@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-undercover-agent-city"
+version = "0.1.0"
+description = "Undercover Agent City - Train an LLM to be a spy. Social deception RL environment for OpenEnv."
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core[core]>=0.2.2",
+    "fastapi>=0.115.0",
+    "pydantic>=2.0.0",
+    "uvicorn[standard]>=0.24.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=4.0.0",
+    "openai>=1.0.0",
+]
+
+[project.scripts]
+server = "undercover_agent_city.server.app:main"
+
+[tool.setuptools]
+packages = ["undercover_agent_city", "undercover_agent_city.server"]
+package-dir = {"undercover_agent_city" = ".", "undercover_agent_city.server" = "server"}
