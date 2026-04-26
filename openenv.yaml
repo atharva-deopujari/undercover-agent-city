@@ -4,3 +4,15 @@ type: space
 runtime: fastapi
 app: server.app:app
 port: 7860
+
+tasks:
+  - id: tutorial_persona
+    description: "Entry level: Pick the correct persona approach for a single NPC."
+  - id: tutorial_consistency
+    description: "Entry level: Maintain a consistent story across two NPCs."
+  - id: first_contact
+    description: "Medium: Navigate the city and build initial trust with multiple gang members."
+  - id: earn_trust
+    description: "Hard: Build deep trust (60+) and successfully gather mission intel."
+  - id: full_job
+    description: "Expert: The full spy cycle—Earn trust, gather intel, and report back to your handler."
