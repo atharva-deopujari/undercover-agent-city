@@ -20,7 +20,6 @@ __all__ = [
     "CoverBlownRubric",
     "NavigationRubric",
     "SubgoalRubric",
-    "SuspicionManagementRubric",
     "IdlePenaltyRubric",
     "UndercoverRubric",
 ]
@@ -189,36 +188,6 @@ class SubgoalRubric(Rubric):
         self._awarded_60 = False
 
 
-class SuspicionManagementRubric(Rubric):
-    """Reward signal for managing suspicion across all mechanics.
-
-    Penalizes high suspicion states to teach the agent to avoid:
-    - Circumstantial suspicion (loitering near warehouse/police station)
-    - Cross-faction gossip (civilians reporting to police)
-    - NPC probe contradictions
-    - Probabilistic cover blow risk at 60+ suspicion
-
-    -0.05 per turn if any NPC has suspicion >= 40 (early warning).
-    -0.15 per turn if any NPC has suspicion >= 60 (danger zone).
-    +0.05 for successfully hiding (reducing suspicion).
-    """
-
-    def forward(self, action: Any, observation: Any) -> float:
-        max_sus = observation.metadata.get("max_suspicion", 0)
-        score = 0.0
-
-        if max_sus >= 60:
-            score -= 0.15
-        elif max_sus >= 40:
-            score -= 0.05
-
-        # Reward hiding when suspicion is high
-        if observation.metadata.get("action_type") == "hide" and max_sus >= 30:
-            score += 0.05
-
-        return score
-
-
 class IdlePenaltyRubric(Rubric):
     """Scaling idle penalty + repetition detection.
 
@@ -259,7 +228,6 @@ class UndercoverRubric(Rubric):
         self.mission = MissionProgressRubric()
         self.navigation = NavigationRubric()
         self.subgoal = SubgoalRubric()
-        self.suspicion_mgmt = SuspicionManagementRubric()
         self.idle = IdlePenaltyRubric()
 
     def forward(self, action: Any, observation: Any) -> float:
@@ -280,9 +248,6 @@ class UndercoverRubric(Rubric):
         score += self.navigation(action, observation)
         score += self.subgoal(action, observation)
 
-        # Suspicion management (Mechanics 2-5)
-        score += self.suspicion_mgmt(action, observation)
-
         # Additive penalties
         score += self.idle(action, observation)
 
@@ -298,7 +263,6 @@ class UndercoverRubric(Rubric):
             self.mission,
             self.navigation,
             self.subgoal,
-            self.suspicion_mgmt,
             self.idle,
         ]:
             child.reset()
