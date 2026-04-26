@@ -29,3 +29,6 @@ server = "undercover_agent_city.server.app:main"
 [tool.setuptools]
 packages = ["undercover_agent_city", "undercover_agent_city.server"]
 package-dir = {"undercover_agent_city" = ".", "undercover_agent_city.server" = "server"}
+
+[tool.setuptools.package-data]
+"undercover_agent_city.server" = ["static/*"]
