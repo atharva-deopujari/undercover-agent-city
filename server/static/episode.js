@@ -21,13 +21,13 @@
 // NPC roster (verbatim from city_data.NPC_ROSTER)
 const INITIAL_NPCS = [
   { id: "razor",    name: "Razor",         faction: "gang",     x: 7,  y: 1,  trust: 0,  suspicion: 0, expected_persona: "tough",  has_intel: true,  trust_threshold: 60 },
-  { id: "whisper",  name: "Whisper",       faction: "gang",     x: 7,  y: 11, trust: 0,  suspicion: 0, expected_persona: "tough",  has_intel: true,  trust_threshold: 50 },
+  { id: "whisper",  name: "Whisper",       faction: "gang",     x: 7,  y: 11, trust: 0,  suspicion: 0, expected_persona: "formal", has_intel: true,  trust_threshold: 50 },
   { id: "fang",     name: "Fang",          faction: "gang",     x: 7,  y: 10, trust: 0,  suspicion: 0, expected_persona: "tough",  has_intel: false, trust_threshold: 999 },
   { id: "handler",  name: "Handler Chen",  faction: "police",   x: 13, y: 1,  trust: 80, suspicion: 0, expected_persona: "formal", has_intel: false, trust_threshold: 0 },
   { id: "patrol",   name: "Officer Diaz",  faction: "police",   x: 2,  y: 2,  trust: 0,  suspicion: 0, expected_persona: "formal", has_intel: false, trust_threshold: 999, patrol_route: [[2,2],[2,5],[2,8],[2,11],[2,8],[2,5]], patrol_step: 0 },
   { id: "merchant", name: "Old Man Liu",   faction: "civilian", x: 3,  y: 6,  trust: 0,  suspicion: 0, expected_persona: "casual", has_intel: false, trust_threshold: 999 },
   { id: "sara",     name: "Sara",          faction: "civilian", x: 4,  y: 12, trust: 0,  suspicion: 0, expected_persona: "casual", has_intel: false, trust_threshold: 999 },
-  { id: "ravi",     name: "Kid Ravi",      faction: "civilian", x: 13, y: 5,  trust: 0,  suspicion: 0, expected_persona: "casual", has_intel: false, trust_threshold: 999 },
+  { id: "ravi",     name: "Kid Ravi",      faction: "civilian", x: 13, y: 5,  trust: 0,  suspicion: 0, expected_persona: "tough",  has_intel: false, trust_threshold: 999 },
 ];
 
 const INITIAL_AGENT = { x: 12, y: 4 }; // Safe house
@@ -260,12 +260,12 @@ const EPISODE = [
   { action: { type: "move", direction: "west" },  options: [{ type: "move", direction: "west", desc: desc.move("west") }], chosen: 1, agent: { x: 7, y: 11 } },
   // Whisper is at (7,11). Adjacent? actually we're standing on him... talk works at adjacent, dist <= 1, so same cell ok
   {
-    action: { type: "talk", target: "whisper", persona: "tough", topic: "origin", claim: "southside" },
+    action: { type: "talk", target: "whisper", persona: "formal", topic: "origin", claim: "southside" },
     options: [
-      { type: "talk", target: "whisper", persona: "tough",  topic: "origin", claim: "southside",   desc: desc.talk("whisper","tough","origin","southside") },
+      { type: "talk", target: "whisper", persona: "formal", topic: "origin", claim: "southside",   desc: desc.talk("whisper","formal","origin","southside") },
       { type: "talk", target: "whisper", persona: "tough",  topic: "origin", claim: "downtown",    desc: desc.talk("whisper","tough","origin","downtown") },
       { type: "talk", target: "whisper", persona: "casual", topic: "origin", claim: "southside",   desc: desc.talk("whisper","casual","origin","southside") },
-      { type: "talk", target: "whisper", persona: "formal", topic: "origin", claim: "out_of_town", desc: desc.talk("whisper","formal","origin","out_of_town") },
+      { type: "talk", target: "whisper", persona: "tough",  topic: "origin", claim: "out_of_town", desc: desc.talk("whisper","tough","origin","out_of_town") },
       { type: "move", direction: "north", desc: desc.move("north") },
     ],
     chosen: 1,
@@ -277,9 +277,9 @@ const EPISODE = [
     patrol_step: 3,
   },
   {
-    action: { type: "talk", target: "whisper", persona: "tough", topic: "boss", claim: "solo" },
+    action: { type: "talk", target: "whisper", persona: "formal", topic: "boss", claim: "solo" },
     options: [
-      { type: "talk", target: "whisper", persona: "tough",  topic: "boss", claim: "solo",            desc: desc.talk("whisper","tough","boss","solo") },
+      { type: "talk", target: "whisper", persona: "formal", topic: "boss", claim: "solo",            desc: desc.talk("whisper","formal","boss","solo") },
       { type: "talk", target: "whisper", persona: "tough",  topic: "boss", claim: "works_for_razor", desc: desc.talk("whisper","tough","boss","works_for_razor") },
       { type: "talk", target: "whisper", persona: "tough",  topic: "boss", claim: "works_for_vince", desc: desc.talk("whisper","tough","boss","works_for_vince") },
       { type: "talk", target: "whisper", persona: "casual", topic: "boss", claim: "independent",     desc: desc.talk("whisper","casual","boss","independent") },

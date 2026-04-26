@@ -130,7 +130,7 @@ NPC_ROSTER = [
     {
         "id": "whisper", "name": "Whisper", "faction": "gang",
         "x": 8, "y": 8,  # Moved to Docks road intersection — reachable from start in 4 moves
-        "has_intel": True, "expected_persona": "tough",
+        "has_intel": True, "expected_persona": "formal",  # Whisper is the intellectual
         "trust_threshold": 50,
         "trust": 0, "suspicion": 0,
         "facts_heard": {}, "patrol_route": [], "is_witness": False,
@@ -182,7 +182,7 @@ NPC_ROSTER = [
     {
         "id": "ravi", "name": "Kid Ravi", "faction": "civilian",
         "x": 4, "y": 11,  # Moved to residential district — away from starting area
-        "has_intel": False, "expected_persona": "casual",
+        "has_intel": False, "expected_persona": "tough",  # Kid Ravi wants to seem cool
         "trust_threshold": 999,
         "trust": 0, "suspicion": 0,
         "facts_heard": {}, "patrol_route": [], "is_witness": False,

@@ -289,6 +289,23 @@ class CityEnvironment(Environment):
         # Advance NPC positions (D-20)
         self._advance_npcs()
 
+        # Circumstantial suspicion: suspicious locations (Mechanic 4)
+        warehouse_x, warehouse_y = WAREHOUSE_X, WAREHOUSE_Y
+        dist_to_warehouse = abs(st.agent_x - warehouse_x) + abs(st.agent_y - warehouse_y)
+        if dist_to_warehouse <= 2 and not st.intel_gathered:
+            for npc in self._get_nearby_npcs(radius=3):
+                if npc["faction"] == "gang":
+                    n = self._get_npc_mutable(npc["id"])
+                    n["suspicion"] = min(100, n["suspicion"] + 3)
+
+        police_station_x, police_station_y = 1, 13
+        dist_to_police = abs(st.agent_x - police_station_x) + abs(st.agent_y - police_station_y)
+        if dist_to_police <= 2:
+            for npc in self._get_nearby_npcs(radius=3):
+                if npc["faction"] == "gang":
+                    n = self._get_npc_mutable(npc["id"])
+                    n["suspicion"] = min(100, n["suspicion"] + 5)
+
         # Cross-reference check every 10 turns (D-14)
         if st.turn % CROSS_REF_INTERVAL == 0 and st.turn > 0:
             self._do_cross_reference()
@@ -407,7 +424,7 @@ class CityEnvironment(Environment):
             npc["trust"] = min(100, npc["trust"] + 10)
             trust_delta += 10
         else:
-            npc["suspicion"] = min(100, npc["suspicion"] + 15)
+            npc["suspicion"] = min(100, npc["suspicion"] + 8)
 
         # Record claim in fact_db
         if topic not in st.fact_db:
@@ -472,6 +489,27 @@ class CityEnvironment(Environment):
             f"(now {npc['trust']}%), "
             f"Persona {persona_mark}, Claim {consist_mark}"
         )
+
+        # NPC probe: same-faction NPCs compare notes (Mechanic 2)
+        if npc["trust"] > 20 and self.rng.random() < 0.3:
+            faction_claims = {}
+            for t, claims in st.fact_db.items():
+                for nid, val in claims.items():
+                    other = self._get_npc(nid)
+                    if other and other["faction"] == npc["faction"] and nid != npc_id:
+                        faction_claims[t] = (nid, val)
+            if faction_claims:
+                probe_topic = self.rng.choice(list(faction_claims.keys()))
+                ref_npc_id, ref_value = faction_claims[probe_topic]
+                ref_npc = self._get_npc(ref_npc_id)
+                my_claim = st.fact_db.get(probe_topic, {}).get(npc_id)
+                if my_claim and my_claim != ref_value:
+                    npc["suspicion"] = min(100, npc["suspicion"] + 20)
+                    response_text += f"\n  !! {npc['name']} narrows eyes: \"{ref_npc['name']} told me something different about your {probe_topic}...\""
+                elif my_claim and my_claim == ref_value:
+                    npc["trust"] = min(100, npc["trust"] + 3)
+                    trust_delta += 3
+                    response_text += f"\n  {npc['name']} nods: \"{ref_npc['name']} mentioned the same thing.\""
 
         return persona_correct, trust_delta, target_trust, new_contradictions, response_text
 
@@ -572,6 +610,16 @@ class CityEnvironment(Environment):
                             npc["y"] = ny
                             break
 
+        # Cross-faction gossip: suspicious civilians report to nearby police (Mechanic 3)
+        patrol_npc = self._get_npc_mutable("patrol")
+        if patrol_npc:
+            for npc in st.npcs:
+                if npc["faction"] == "civilian" and npc["suspicion"] >= 30:
+                    dist = abs(npc["x"] - patrol_npc["x"]) + abs(npc["y"] - patrol_npc["y"])
+                    if dist <= 4:
+                        patrol_npc["suspicion"] = min(100, patrol_npc["suspicion"] + 8)
+                        npc["suspicion"] = max(0, npc["suspicion"] - 10)  # civilian feels "reported"
+
     # ------------------------------------------------------------------
     # Cross-reference (D-14)
     # ------------------------------------------------------------------
@@ -602,12 +650,22 @@ class CityEnvironment(Environment):
     # ------------------------------------------------------------------
 
     def _check_cover_blown(self) -> None:
-        """If any NPC suspicion >= 80, cover is blown."""
+        """Probabilistic cover detection (Mechanic 5).
+
+        Higher suspicion = higher chance per turn.
+        At 80+: guaranteed blown. At 60-79: increasing probability each turn.
+        """
         st = self._state
         for npc in st.npcs:
             if npc["suspicion"] >= SUSPICION_THRESHOLD:
                 st.cover_intact = False
                 return
+            elif npc["suspicion"] >= 70:
+                # Probabilistic: (suspicion - 60) / 100 chance per turn
+                blow_chance = (npc["suspicion"] - 60) / 100.0
+                if self.rng.random() < blow_chance:
+                    st.cover_intact = False
+                    return
 
     def _check_done(self) -> bool:
         """Check if episode is over."""
@@ -666,15 +724,26 @@ class CityEnvironment(Environment):
         correct_talk_actions = []
         adjacent_npcs = self._get_adjacent_npcs()
 
+        # Semi-opaque approach labels: descriptive enough for an LLM to reason
+        # about social dynamics, but not a direct "use X for faction Y" mapping.
+        # The agent must learn that "street-smart" works for SOME gang members
+        # but not all (Whisper prefers "measured"), creating a real learning challenge.
+        _APPROACH_LABELS = {
+            "tough": "street-smart and blunt",
+            "formal": "measured and respectful",
+            "casual": "easygoing and chatty",
+        }
+
         for npc in adjacent_npcs:
             # Determine next topic for this NPC
             topic = self._get_next_topic(npc["id"])
 
             for persona in ["tough", "formal", "casual"]:
                 for claim_value in CLAIM_OPTIONS[topic]:
+                    approach = _APPROACH_LABELS[persona]
                     desc = (
-                        f"Talk to {npc['name']} "
-                        f"[{persona}, {topic}: {claim_value}]"
+                        f"Talk to {npc['name']} about {topic} "
+                        f"({claim_value}) — {approach}"
                     )
                     talk_act = {
                         "type": "talk",
@@ -715,29 +784,28 @@ class CityEnvironment(Environment):
         # 5. Wait (always available)
         wait_action = {"type": "wait", "description": "Wait and observe"}
 
-        # Assemble with priorities:
-        # Keep at least 1 navigate, prioritize correct-persona talks, then others
+        # Assemble actions: mix correct and wrong persona talks equally
+        # so random baseline has ~33% persona accuracy, not 85%.
         self.rng.shuffle(navigate_actions)
-        self.rng.shuffle(correct_talk_actions)
-        self.rng.shuffle(talk_actions)
         self.rng.shuffle(special_actions)
 
+        # Mix talk actions: interleave correct and wrong to ensure balanced representation
+        all_talks = correct_talk_actions + talk_actions
+        self.rng.shuffle(all_talks)
+
         # Build priority list
-        # Ensure at least 1 navigate if available
         if navigate_actions:
             actions.append(navigate_actions[0])
             remaining_navigates = navigate_actions[1:]
         else:
             remaining_navigates = []
 
-        # Add correct-persona talks first
-        actions.extend(correct_talk_actions)
         # Add special actions
         actions.extend(special_actions)
+        # Add mixed talk actions (correct and wrong interleaved)
+        actions.extend(all_talks)
         # Add remaining navigate options
         actions.extend(remaining_navigates)
-        # Add wrong-persona talks
-        actions.extend(talk_actions)
         # Add wait last
         actions.append(wait_action)
 
@@ -774,9 +842,15 @@ class CityEnvironment(Environment):
         # Pick one claim value (consistent if already told this faction)
         claim = self._get_consistent_claim(topic, npc)
 
+        _APPROACH_LABELS = {
+            "tough": "street-smart and blunt",
+            "formal": "measured and respectful",
+            "casual": "easygoing and chatty",
+        }
         actions = []
         for persona in ["tough", "formal", "casual"]:
-            desc = f"Talk to {npc['name']} [{persona}, {topic}: {claim}]"
+            approach = _APPROACH_LABELS[persona]
+            desc = f"Talk to {npc['name']} about {topic} ({claim}) — {approach}"
             actions.append({
                 "type": "talk",
                 "target_npc": npc["id"],
@@ -934,8 +1008,7 @@ class CityEnvironment(Environment):
             f"{terrain} ({st.agent_x},{st.agent_y})"
         )
 
-        # Nearby NPCs — trust/suspicion shown as behavioral cues, not numbers
-        # (Partial observability: agent must infer disposition from cues)
+        # Nearby NPCs — show faction + raw trust/suspicion for clear RL signal
         if nearby_npcs:
             npc_lines = []
             for npc in nearby_npcs:
@@ -945,23 +1018,30 @@ class CityEnvironment(Environment):
                     npc["x"], npc["y"],
                 )
                 adj = "adjacent" if dist <= 1 else f"{dist} cells {direction}"
-                disposition = self._get_disposition_cue(npc)
                 npc_lines.append(
                     f"  {npc['name']} ({npc['faction']}) "
-                    f"-- {adj} -- {disposition}"
+                    f"-- {adj} -- trust:{npc['trust']} suspicion:{npc['suspicion']}"
                 )
             lines.append("NEARBY:\n" + "\n".join(npc_lines))
         else:
             lines.append("NEARBY: No one visible.")
 
-        # Cover story summary (critical -- model has NO memory)
+        # Heat indicators (Mechanic 5 companion)
+        max_sus = max((n["suspicion"] for n in st.npcs), default=0)
+        if max_sus >= 60:
+            lines.append("WARNING: Someone is very suspicious of you. Watch your step.")
+        elif max_sus >= 40:
+            lines.append("CAUTION: You're attracting attention.")
+
+        # Cover story summary — show what you claimed but NOT who you told.
+        # The agent must track per-NPC consistency from memory/context.
         if st.fact_db:
             claims = []
             for topic, npc_claims in st.fact_db.items():
                 vals = list(set(npc_claims.values()))
-                told_to = ", ".join(npc_claims.keys())
-                val_str = "/".join(vals) if len(vals) > 1 else vals[0]
-                claims.append(f"{topic}={val_str} (told to {told_to})")
+                val_str = "/".join(vals)
+                n_told = len(npc_claims)
+                claims.append(f"{topic}={val_str} (told to {n_told} people)")
             lines.append("COVER STORY: " + "; ".join(claims))
         else:
             lines.append("COVER STORY: None yet -- you haven't told anyone anything.")
@@ -1072,6 +1152,9 @@ class CityEnvironment(Environment):
             "reported_to_handler": st.reported_to_handler,
             "agent_x": st.agent_x,
             "agent_y": st.agent_y,
+            "max_suspicion": max(
+                (n["suspicion"] for n in st.npcs), default=0
+            ),
         }
 
     # ------------------------------------------------------------------
@@ -1203,10 +1286,15 @@ class CityEnvironment(Environment):
     # Task graders (TSK-01, TSK-02, TSK-03, GRD-01, GRD-02)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _clamp_grade(v: float) -> float:
+        """Clamp grade to open interval [0.01, 0.99] for GRPO stability."""
+        return max(0.01, min(0.99, v))
+
     def grade_episode(self) -> float:
-        """Grade current episode based on task type. Returns 0.0-1.0."""
+        """Grade current episode based on task type. Returns [0.01-0.99]."""
         if self._state is None:
-            return 0.0
+            return 0.01
         task = self._state.current_task
         if task == "tutorial_persona":
             return self._grade_tutorial_persona()
@@ -1218,105 +1306,129 @@ class CityEnvironment(Environment):
             return self._grade_earn_trust()
         elif task == "full_job":
             return self._grade_full_job()
-        return 0.0
+        return 0.01
 
     def _grade_tutorial_persona(self) -> float:
         """Grade tutorial_persona: pure persona accuracy (1 turn)."""
         st = self._state
         if st.total_talks == 0:
-            return 0.0
-        return st.correct_personas / st.total_talks
+            return 0.01
+        return self._clamp_grade(st.correct_personas / st.total_talks)
 
     def _grade_tutorial_consistency(self) -> float:
-        """Grade tutorial_consistency: persona accuracy + consistency."""
+        """Grade tutorial_consistency: persona accuracy + consistency.
+
+        Requires at least 3 talks out of 5 turns for full credit.
+        """
         st = self._state
+        if st.total_talks == 0:
+            return 0.01
+        engagement = min(0.99, st.total_talks / 3.0)
         persona_acc = st.correct_personas / max(1, st.total_talks)
         contradictions = len(st.contradictions)
-        consistency = 1.0 if contradictions == 0 else max(0.0, 1.0 - 0.3 * contradictions)
-        return 0.50 * persona_acc + 0.50 * consistency
+        consistency = max(0.01, 1.0 - 0.3 * contradictions) if contradictions > 0 else 0.99
+        return self._clamp_grade((0.50 * persona_acc + 0.50 * consistency) * engagement)
 
     def _grade_first_contact(self) -> float:
-        """Grade Task 1: persona accuracy + consistency + trust + cover."""
+        """Grade Task 1: additive credit for each achievement.
+
+        Random ~0.10-0.20, GPT-4o-mini ~0.35-0.55, Trained ~0.60-0.85
+        """
         st = self._state
+        if st.total_talks == 0:
+            return 0.01
+
         persona_acc = st.correct_personas / max(1, st.total_talks)
-        contradictions = len(st.contradictions)
-        consistency = 1.0 if contradictions == 0 else max(0.0, 1.0 - 0.3 * contradictions)
-        max_gang_trust = max(
-            (n["trust"] for n in st.npcs if n["faction"] == "gang"), default=0
+        gang_npcs = [n for n in st.npcs if n["faction"] == "gang"]
+        avg_gang_trust = sum(n["trust"] for n in gang_npcs) / max(1, len(gang_npcs))
+        trust_score = min(0.99, avg_gang_trust / 40.0)
+        contradiction_rate = len(st.contradictions) / max(1, st.total_talks)
+        consistency = max(0.01, 1.0 - 2.0 * contradiction_rate)
+        engagement = min(0.99, st.total_talks / 5.0)
+        cover = 0.99 if st.cover_intact else 0.01
+
+        return self._clamp_grade(
+            0.30 * persona_acc
+            + 0.30 * trust_score
+            + 0.20 * consistency
+            + 0.10 * engagement
+            + 0.10 * cover
         )
-        trust_score = min(1.0, max_gang_trust / 100.0)
-        cover = float(st.cover_intact)
-        return 0.35 * persona_acc + 0.35 * consistency + 0.20 * trust_score + 0.10 * cover
 
     def _grade_earn_trust(self) -> float:
-        """Grade Task 2: base skills * mission gate.
+        """Grade Task 2: additive skill credits + mission milestones.
 
-        Mission gate ensures that persona/consistency alone cannot produce
-        a high score — the agent MUST complete mission objectives.
+        Random ~0.05-0.15, GPT-4o-mini ~0.30-0.50, Trained ~0.55-0.80
         """
         st = self._state
+        if st.total_talks == 0:
+            return 0.01
+
         persona_acc = st.correct_personas / max(1, st.total_talks)
-        contradictions = len(st.contradictions)
-        consistency = 1.0 if contradictions == 0 else max(0.0, 1.0 - 0.3 * contradictions)
-        max_gang_trust = max(
+        gang_npcs = [n for n in st.npcs if n["faction"] == "gang"]
+        avg_gang_trust = sum(n["trust"] for n in gang_npcs) / max(1, len(gang_npcs))
+        trust_score = min(0.99, avg_gang_trust / 40.0)
+        contradiction_rate = len(st.contradictions) / max(1, st.total_talks)
+        consistency = max(0.01, 1.0 - 2.0 * contradiction_rate)
+        engagement = min(0.99, st.total_talks / 8.0)
+        cover = 0.99 if st.cover_intact else 0.01
+
+        skill = (
+            0.15 * persona_acc
+            + 0.15 * trust_score
+            + 0.10 * consistency
+            + 0.05 * engagement
+            + 0.05 * cover
+        )
+
+        max_gang_trust_val = max(
             (n["trust"] for n in st.npcs if n["faction"] == "gang"), default=0
         )
-        trust_score = min(1.0, max_gang_trust / 100.0)
-        cover = float(st.cover_intact)
-
-        base = (
-            0.30 * persona_acc
-            + 0.25 * consistency
-            + 0.20 * trust_score
-            + 0.25 * cover
-        )
-
-        # Mission gate: trust >= 60 AND investigated
-        mission_progress = 0.0
-        if trust_score >= 0.6:
-            mission_progress += 0.5
+        mission = 0.0
+        if max_gang_trust_val >= 60:
+            mission += 0.25
         if st.intel_gathered:
-            mission_progress += 0.5
-        # Softened gate: 50% base skill signal + 50% gated by mission progress
-        # This gives gradient signal for persona/trust even without mission completion
-        grade = 0.5 * base + 0.5 * base * (0.3 + 0.7 * mission_progress)
-        return grade
+            mission += 0.25
+
+        return self._clamp_grade(skill + mission)
 
     def _grade_full_job(self) -> float:
-        """Grade Task 3: base skills * mission gate.
+        """Grade Task 3: additive skill credits + hard mission gates.
 
-        Mission gate requires ALL steps (trust, intel, report, no witnesses).
-        Without completing mission steps, even perfect persona/consistency
-        scores result in a low grade.
+        Random ~0.03-0.12, GPT-4o-mini ~0.25-0.45, Trained ~0.50-0.80
         """
         st = self._state
+        if st.total_talks == 0:
+            return 0.01
+
         persona_acc = st.correct_personas / max(1, st.total_talks)
-        contradictions = len(st.contradictions)
-        consistency = 1.0 if contradictions == 0 else max(0.0, 1.0 - 0.3 * contradictions)
-        max_gang_trust = max(
+        gang_npcs = [n for n in st.npcs if n["faction"] == "gang"]
+        avg_gang_trust = sum(n["trust"] for n in gang_npcs) / max(1, len(gang_npcs))
+        trust_score = min(0.99, avg_gang_trust / 40.0)
+        contradiction_rate = len(st.contradictions) / max(1, st.total_talks)
+        consistency = max(0.01, 1.0 - 2.0 * contradiction_rate)
+        engagement = min(0.99, st.total_talks / 10.0)
+        cover = 0.99 if st.cover_intact else 0.01
+
+        skill = (
+            0.10 * persona_acc
+            + 0.10 * trust_score
+            + 0.05 * consistency
+            + 0.05 * engagement
+            + 0.05 * cover
+        )
+
+        max_gang_trust_val = max(
             (n["trust"] for n in st.npcs if n["faction"] == "gang"), default=0
         )
-        trust_score = min(1.0, max_gang_trust / 100.0)
-        cover = float(st.cover_intact)
-
-        base = (
-            0.25 * persona_acc
-            + 0.20 * consistency
-            + 0.15 * trust_score
-            + 0.15 * cover
-        )
-
-        # Mission gate: must complete ALL steps
-        steps_completed = 0
-        if trust_score >= 0.6:
-            steps_completed += 1  # Built trust
+        mission = 0.0
+        if max_gang_trust_val >= 60:
+            mission += 0.15
         if st.intel_gathered:
-            steps_completed += 1  # Got intel
+            mission += 0.15
         if st.reported_to_handler:
-            steps_completed += 1  # Reported
-        if not st.witnesses_during_report:
-            steps_completed += 1  # No witnesses
-        mission_progress = steps_completed / 4.0
-        # Softened gate: 50% base skill signal + 50% gated by mission progress
-        grade = 0.5 * base + 0.5 * base * (0.2 + 0.8 * mission_progress)
-        return grade
+            mission += 0.20
+        if st.reported_to_handler and not st.witnesses_during_report:
+            mission += 0.15
+
+        return self._clamp_grade(skill + mission)

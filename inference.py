@@ -52,9 +52,10 @@ SUCCESS_SCORE_THRESHOLD = 0.30
 
 SYSTEM_PROMPT = (
     "You are an undercover agent infiltrating a criminal gang in a city. /no_think\n"
-    "Pick the BEST action number. \n"
-    "TOUGH with gang, FORMAL with police, CASUAL with civilians. \n"
-    "Keep your cover story CONSISTENT — never contradict what you told same-faction NPCs.\n"
+    "Pick the BEST action number.\n"
+    "TALK to NPCs to build trust — that is your primary objective.\n"
+    "Each person responds best to a specific approach. Learn which works for whom.\n"
+    "Keep your cover story CONSISTENT — never contradict what you told people.\n"
     "Output ONLY a single number. Nothing else."
 )
 
@@ -536,6 +537,7 @@ def run_inference(
 
 
 def main():
+    global ENV_URL, MODEL_NAME, EPISODES_PER_TASK
     parser = argparse.ArgumentParser(
         description="Undercover Agent City -- Baseline Inference Agent",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -586,7 +588,6 @@ Examples:
     args = parser.parse_args()
 
     # Apply CLI overrides to globals
-    global ENV_URL, MODEL_NAME, EPISODES_PER_TASK
     if args.env_url:
         ENV_URL = args.env_url
     if args.model:
