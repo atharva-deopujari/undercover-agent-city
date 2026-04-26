@@ -1065,9 +1065,9 @@ class CityEnvironment(Environment):
         # Available actions
         lines.append("Available actions:")
         for act in self._available_actions:
-            lines.append(f"  {act['index']}. {act['description']}")
+            lines.append(f"  - {act['description']}")
         lines.append("")
-        lines.append(f"Choose (1-{len(self._available_actions)}):")
+        lines.append("Reply with the EXACT text of your chosen action:")
 
         return "\n".join(lines)
 

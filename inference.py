@@ -51,12 +51,12 @@ SUCCESS_SCORE_THRESHOLD = 0.30
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = (
-    "You are an undercover agent infiltrating a criminal gang in a city. /no_think\n"
-    "Pick the BEST action number.\n"
+    "You are an undercover agent infiltrating a criminal gang in a city.\n"
+    "Choose the BEST action from the list.\n"
     "TALK to NPCs to build trust — that is your primary objective.\n"
     "Each person responds best to a specific approach. Learn which works for whom.\n"
     "Keep your cover story CONSISTENT — never contradict what you told people.\n"
-    "Output ONLY a single number. Nothing else."
+    "Reply with the EXACT text of your chosen action. Nothing else."
 )
 
 # ---------------------------------------------------------------------------
@@ -136,20 +136,39 @@ def create_llm_backend() -> LLMBackend:
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
-def parse_action_number(raw: str, num_actions: int) -> int:
-    """Extract an integer action from LLM output.
+def parse_action_number(raw: str, num_actions: int, available_actions: list = None) -> int:
+    """Extract action from LLM output — supports both text matching and number fallback.
 
-    Strips <think>...</think> blocks (Qwen3 models), then finds
-    the first integer in the remaining text. Falls back to 1 if parsing fails.
-    Returns a valid 1-indexed action clamped to [1, num_actions].
+    If available_actions is provided, tries text matching first.
+    Falls back to number parsing for backward compatibility.
     """
+    import difflib
     cleaned = _THINK_RE.sub("", raw).strip()
-    # Find the first integer in the cleaned text
+
+    # Try text matching if actions available
+    if available_actions:
+        descriptions = [a.get("description", "") for a in available_actions]
+        # Exact match
+        for i, desc in enumerate(descriptions):
+            if cleaned.lower() == desc.lower():
+                return i + 1
+        # Fuzzy match
+        matches = difflib.get_close_matches(cleaned.lower(), [d.lower() for d in descriptions], n=1, cutoff=0.4)
+        if matches:
+            for i, desc in enumerate(descriptions):
+                if desc.lower() == matches[0]:
+                    return i + 1
+        # Substring match
+        for i, desc in enumerate(descriptions):
+            if desc.lower() in cleaned.lower() or cleaned.lower() in desc.lower():
+                return i + 1
+
+    # Fallback: number parsing
     match = re.search(r"\b(\d+)\b", cleaned)
     if match:
         val = int(match.group(1))
         return max(1, min(val, num_actions))
-    return 1  # Safe fallback
+    return 1
 
 
 # ---------------------------------------------------------------------------
