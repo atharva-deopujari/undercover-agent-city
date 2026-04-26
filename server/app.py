@@ -59,13 +59,7 @@ if enable_web:
 # This is the game-style visualization with animated city, speech bubbles,
 # playback controls, and live server connection support.
 if STATIC_DIR.exists():
-    from fastapi.responses import RedirectResponse
-
-    @app.get("/", include_in_schema=False)
-    async def root_redirect():
-        """Redirect root to spectator UI."""
-        return RedirectResponse(url="/spectator")
-
+    
     @app.get("/spectator", response_class=FileResponse)
     async def spectator_index():
         """Serve the spectator UI index page."""
