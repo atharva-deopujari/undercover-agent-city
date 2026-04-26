@@ -1,8 +1,24 @@
+---
+title: Undercover Agent City
+emoji: "\U0001F575\uFE0F"
+colorFrom: indigo
+colorTo: red
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: 'Train an LLM Spy — Social deception RL env'
+---
+
 # Undercover Agent City
 
 **Train an LLM to be a Spy** — A social deception RL environment for the Meta OpenEnv Hackathon 2026
 
 [Live Environment](https://huggingface.co/spaces/atharvadeopujari/undercover-agent-city) | [Training Notebook](undercover_agent_city_training.ipynb) | [Spectator UI](https://atharvadeopujari-undercover-agent-city.hf.space/spectator)
+
+![Spectator Demo](assets/spectator_demo.gif)
+
+[![Presentation Deck](assets/ppt.png)](https://docs.google.com/presentation/d/1BlNIGa1F8K8l5HGxQ14G3P-tcsB2xtTc23yPU0yGSRI/edit?usp=sharing)
 
 ---
 
@@ -62,17 +78,17 @@ Phase 1 worked. Persona accuracy jumped from 30% to 60%. Then Phase 2 started on
 
 ### Attempt 2: Mixed Training (The Fix)
 
-We scrapped the curriculum and combined all data into a single training run — 30% tutorial + 40% first_contact + 30% earn_trust, shuffled together, 500 steps in one GRPOTrainer call.
+We scrapped the curriculum and combined all data into a single training run — 30% tutorial + 40% first_contact + 30% earn_trust, shuffled together, trained in one GRPOTrainer call.
 
-No phase transitions. No forgetting.
+No phase transitions. No forgetting. Clear upward reward signal.
 
-![Mixed Reward Curve](assets/plots/mixed_reward_curve.png)
-*Stable reward curve — no drops, consistent learning signal across all task types.*
+![Training Progress](assets/plots/training_progress.png)
+*Left: GRPO training loss. Right: Average reward climbs from -2.5 to +1.5, stabilizing in positive territory — the model learned to pick correct approaches and maintain consistency.*
 
 ## Results
 
-**Model:** Qwen3-4B (4-bit quantized, LoRA r=32, alpha=64)
-**Training:** 500 steps GRPO, mixed dataset, Colab T4
+**Model:** Qwen3-4B (4-bit quantized, LoRA r=32, alpha=64)  
+**Training:** GRPO mixed dataset, Colab T4
 
 ![Before/After Comparison](assets/plots/mixed_eval_comparison.png)
 
@@ -169,10 +185,4 @@ No prior work exists on RL training for LLM social deception. AvalonBench and We
 3. **Social deception is genuinely hard for LLMs** — even with explicit persona labels, maintaining consistency across NPCs requires real learning
 4. **The training curve tells the story** — judges (and researchers) want to see improvement over time, not just final numbers
 
-## Team
-
-Built by Atharva Deopujari for the Meta OpenEnv Hackathon 2026.
-
-## License
-
-MIT
+## Developed by Atharva Deopujari | [GitHub](https://github.com/atharva-deopujari)
