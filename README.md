@@ -14,7 +14,7 @@ short_description: 'Train an LLM Spy — Social deception RL env'
 
 **Train an LLM to be a Spy** — A social deception RL environment for the Meta OpenEnv Hackathon 2026
 
-[Live Environment](https://huggingface.co/spaces/atharvadeopujari/undercover-agent-city) | [Training Notebook](undercover_agent_city_training.ipynb) | [Spectator UI](https://atharvadeopujari-undercover-agent-city.hf.space/spectator)
+[Live Environment](https://huggingface.co/spaces/atharvadeopujari/undercover-agent-city) | [GitHub](https://github.com/atharva-deopujari/undercover-agent-city) | [Spectator UI](https://atharvadeopujari-undercover-agent-city.hf.space/spectator) | [Training Notebooks](undercover_agent_city_mixed_training_hf.ipynb)
 
 ![Spectator Demo](assets/spectator_demo.gif)
 
