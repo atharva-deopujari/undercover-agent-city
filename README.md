@@ -18,6 +18,7 @@ short_description: 'Train an LLM Spy — Social deception RL env'
 
 ![Spectator Demo](assets/spectator_demo.gif)
 
+## Presentation Deck
 [![Presentation Deck](assets/ppt.png)](https://docs.google.com/presentation/d/1BlNIGa1F8K8l5HGxQ14G3P-tcsB2xtTc23yPU0yGSRI/edit?usp=sharing)
 
 ---
