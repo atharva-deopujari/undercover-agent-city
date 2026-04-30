@@ -106,6 +106,8 @@ The trained model achieves:
 - **3.5x improvement on earn_trust** (0.822 vs 0.239 random baseline)
 - **Zero cover blown** across all evaluations
 
+**The `full_job` task (80 turns)** remains the ultimate challenge — the agent must earn trust, sneak into the warehouse for intel, and report to the handler without witnesses. Even GPT-4o-mini scores only ~0.60 on this task zero-shot, leaving significant room for RL training improvement.
+
 ## Spectator UI
 
 We built an isometric game-style visualization to watch the agent in action:
